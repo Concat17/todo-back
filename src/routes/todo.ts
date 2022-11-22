@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { Types } from "mongoose";
-import { ITask, TaskModel } from "../models/task";
+import { ITodo, TodoModel } from "../models/todo";
 
 const routes = Router();
 
 routes.get("/", async (req, res) => {
   try {
-    const tasks: ITask[] = await TaskModel.find().exec();
-    return res.json(tasks);
+    const todos: ITodo[] = await TodoModel.find().exec();
+    return res.json(todos);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -16,23 +16,24 @@ routes.get("/", async (req, res) => {
 
 routes.post("/", async (req, res) => {
   try {
-    const task: ITask = req.body;
-    task.done = false;
-    console.log("creating task", task);
+    const todo: ITodo = req.body;
+    todo.done = false;
+    console.log("creating todo", todo);
 
-    const isTaskExists = await TaskModel.findOne({
-      title: task.title,
+    const isTodoExists = await TodoModel.findOne({
+      title: todo.title,
     }).exec();
 
-    if (isTaskExists) {
+    if (isTodoExists) {
       return res
         .status(409)
-        .json({ error: "There is already another task with this title" });
+        .json({ error: "There is already another todo with this title" });
     }
 
-    task.deadline = task.deadline ? new Date(task.deadline) : new Date();
-    const newTask = await TaskModel.create(task);
-    return res.status(201).json(newTask);
+    todo.deadline = todo.deadline ? new Date(todo.deadline) : new Date();
+    todo.fileName = null;
+    const newTodo = await TodoModel.create(todo);
+    return res.status(201).json(newTodo);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -41,9 +42,9 @@ routes.post("/", async (req, res) => {
 
 routes.put("/", async (req, res) => {
   try {
-    const { _id, title, description, deadline, done }: ITask = req.body;
+    const { _id, title, description, deadline, done }: ITodo = req.body;
 
-    await TaskModel.updateOne(
+    await TodoModel.updateOne(
       {
         _id,
       },
@@ -66,9 +67,9 @@ routes.put("/", async (req, res) => {
 
 routes.put("/check", async (req, res) => {
   try {
-    const { _id, done }: ITask = req.body;
+    const { _id, done }: ITodo = req.body;
     console.log("check", done);
-    await TaskModel.updateOne(
+    await TodoModel.updateOne(
       {
         _id,
       },
@@ -88,11 +89,11 @@ routes.put("/check", async (req, res) => {
 
 routes.delete("/", async (req, res) => {
   try {
-    const task: ITask = req.body;
+    const todo: ITodo = req.body;
 
-    console.log("deleting", task);
+    console.log("deleting", todo);
 
-    await TaskModel.findOneAndRemove({ _id: task._id });
+    await TodoModel.findOneAndRemove({ _id: todo._id });
 
     return res.status(200).json({ message: "Removed" });
   } catch (error) {
@@ -103,9 +104,7 @@ routes.delete("/", async (req, res) => {
 
 routes.delete("/all", async (req, res) => {
   try {
-    const task: ITask = req.body;
-
-    await TaskModel.deleteMany({});
+    await TodoModel.deleteMany({});
 
     return res.status(200).json({ message: "Removed all elements" });
   } catch (error) {

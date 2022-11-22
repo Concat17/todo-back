@@ -1,13 +1,14 @@
 import { model, Schema, Document, Types } from "mongoose";
 
-interface ITask extends Document {
+interface ITodo extends Document {
   title: string;
   description: string;
   deadline: Date;
   done: boolean;
+  fileName: string | null;
 }
 
-const TaskSchema = new Schema({
+const TodoSchema = new Schema({
   title: {
     type: String,
     require: true,
@@ -21,8 +22,11 @@ const TaskSchema = new Schema({
   done: {
     type: Boolean,
   },
+  fileName: {
+    type: String,
+  },
 });
 
-const TaskModel = model<ITask>("Task", TaskSchema);
+const TodoModel = model<ITodo>("Todo", TodoSchema);
 
-export { TaskModel, ITask };
+export { TodoModel, ITodo };

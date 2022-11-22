@@ -1,6 +1,7 @@
 import "./lib/db";
 import express from "express";
-import taskRoutes from "./routes/task";
+import todoRoutes from "./routes/todo";
+import fileRoutes from "./routes/file";
 
 const app = express();
 const port = process.env.PORT || 3333;
@@ -15,7 +16,8 @@ app.get("/", async (req, res) => {
   res.json({ message: "test" });
 });
 
-app.use("/todo", taskRoutes);
+app.use("/todo", todoRoutes);
+app.use("/file", fileRoutes);
 
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`);
