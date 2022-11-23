@@ -6,6 +6,7 @@ interface ITodo extends Document {
   deadline: Date;
   done: boolean;
   fileName: string | null;
+  fileId: string | null;
 }
 
 const TodoSchema = new Schema({
@@ -23,6 +24,9 @@ const TodoSchema = new Schema({
     type: Boolean,
   },
   fileName: {
+    type: String,
+  },
+  fileId: {
     type: String,
   },
 });

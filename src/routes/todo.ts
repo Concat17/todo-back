@@ -1,8 +1,28 @@
 import { Router } from "express";
-import { Types } from "mongoose";
+import mongoose, { ObjectId } from "mongoose";
+import { FileModel } from "../models/file";
 import { ITodo, TodoModel } from "../models/todo";
 
+if (!process.env.MONGO_URL) {
+  throw new Error("Please add the MONGO_URL environment variable");
+}
+
 const routes = Router();
+
+let gfs: any;
+
+const url = process.env.MONGO_URL;
+const connect = mongoose.createConnection(url, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+connect.once("open", () => {
+  // initialize stream
+  gfs = new mongoose.mongo.GridFSBucket(connect.db, {
+    bucketName: "uploads",
+  });
+});
 
 routes.get("/", async (req, res) => {
   try {
@@ -32,6 +52,7 @@ routes.post("/", async (req, res) => {
 
     todo.deadline = todo.deadline ? new Date(todo.deadline) : new Date();
     todo.fileName = null;
+    todo.fileId = null;
     const newTodo = await TodoModel.create(todo);
     return res.status(201).json(newTodo);
   } catch (error) {
@@ -80,7 +101,7 @@ routes.put("/check", async (req, res) => {
       }
     );
 
-    return res.status(200).json({ message: "Done status changed" });
+    return res.status(200).json({ message: "Done status changing" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -89,11 +110,30 @@ routes.put("/check", async (req, res) => {
 
 routes.delete("/", async (req, res) => {
   try {
-    const todo: ITodo = req.body;
+    const { _id } = req.body;
 
-    console.log("deleting", todo);
+    console.log("deleting", _id);
 
-    await TodoModel.findOneAndRemove({ _id: todo._id });
+    const todo = await TodoModel.findOne({ _id });
+
+    await TodoModel.findOneAndRemove({ _id });
+
+    console.log(todo);
+    // delete todo's attachment if it exists
+
+    if (!todo?.fileId) return res.status(200).json({ message: "Removed" });
+    console.log("fileId", todo?.fileId);
+    console.log("delete todos attachment");
+    gfs.delete(
+      new mongoose.Types.ObjectId(todo.fileId),
+      async (err: any, data: any) => {
+        if (err) {
+          return res.status(404).json({ err: err });
+        }
+
+        await FileModel.findOneAndRemove({ fileId: todo.fileId || "" });
+      }
+    );
 
     return res.status(200).json({ message: "Removed" });
   } catch (error) {

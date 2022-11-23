@@ -2,8 +2,7 @@ import express from "express";
 import mongoose, { ObjectId } from "mongoose";
 import multer from "multer";
 import { GridFsStorage } from "multer-gridfs-storage";
-import crypto from "crypto";
-import path from "path";
+
 import { IFile, FileModel } from "../models/file";
 import { TodoModel } from "../models/todo";
 
@@ -59,7 +58,7 @@ routes.get("/", async (req, res) => {
         GET: Fetches a particular file by todoId
     */
 routes.route("/:todoId").get(async (req, res, next) => {
-  console.log("getting file", req.params.todoId);
+  console.log("getting file", req.params);
   const file = await FileModel.findOne({
     todoId: req.params.todoId,
   }).exec();
@@ -88,12 +87,26 @@ routes.route("/:todoId").get(async (req, res, next) => {
 });
 
 /* 
-                GET: Fetches a particular file by todoId and render on browser
-        */
+    GET: Fetches a particular file by todoId and render on browser
+*/
 routes.route("/download/:todoId").get(async (req, res, next) => {
-  console.log("downloading file", req.params.todoId);
+  console.log("downloading file" + req.params.todoId);
+
+  const todo = await TodoModel.findOne({
+    _id: req.params.todoId,
+  }).exec();
+
+  console.log(todo);
+
+  if (!todo?.fileId) {
+    return res.status(200).json({
+      success: false,
+      message: "No todo or file",
+    });
+  }
+
   const file = await FileModel.findOne({
-    todoId: req.params.todoId,
+    fileId: todo.fileId,
   }).exec();
 
   if (!file)
@@ -124,60 +137,48 @@ routes
   .route("/")
   .post(upload.single("file"), async (req, res, next) => {
     console.log("uploading file", req.body);
-    // check for existing files
-    FileModel.findOne({ caption: req.body.caption })
-      .then(async (file) => {
-        console.log(file);
-        if (file) {
-          return res.status(200).json({
-            success: false,
-            message: "File already exists",
-          });
-        }
 
-        if (!req?.file) return;
+    // check for existing todos
+    const todo = await TodoModel.findOne({ _id: req.body.todoId }).exec();
 
-        const f: any = req.file;
+    console.log(todo);
 
-        let newFile = new FileModel({
-          caption: req.body.caption,
-          filename: f.filename,
-          fileId: f.id,
-        });
+    if (!todo)
+      return res.status(200).json({
+        success: false,
+        message: "No such todo",
+      });
 
-        const todo = await TodoModel.findOne({
-          _id: req.body.todoId,
-        }).exec();
+    // deleting old file
+    if (todo.fileId) await FileModel.findOneAndRemove({ _id: todo.fileId });
 
-        if (!todo) {
-          return res.status(200).json({
-            success: false,
-            message: "Todo for file is not found",
-          });
-        }
+    //creating new record
+    const f: any = req.file;
 
-        todo.fileName = f.filename;
+    let newFile = new FileModel({
+      filename: f.filename,
+      fileId: f.id,
+    });
 
-        await TodoModel.updateOne(
-          {
-            _id: req.body.todoId,
-          },
-          {
-            $set: { ...todo },
-          }
-        );
+    // changing file info in todo
+    todo.fileName = newFile.filename;
+    todo.fileId = newFile.fileId;
 
-        newFile
-          .save()
-          .then((file) => {
-            res.status(200).json({
-              success: true,
-              file,
-            });
-          })
-          .catch((err) => res.status(500).json(err));
-      })
-      .catch((err) => res.status(500).json(err));
+    await TodoModel.updateOne(
+      {
+        _id: req.body.todoId,
+      },
+      {
+        $set: { ...todo },
+      }
+    );
+
+    newFile.save().then((file) => {
+      res.status(200).json({
+        success: true,
+        file,
+      });
+    });
   })
   .get((req, res, next) => {
     FileModel.find({})
@@ -192,18 +193,54 @@ routes
 
 /*
       DELETE: Delete a particular file by an ID
-  */
-// imageRouter.route("/file/del/:id").post((req, res, next) => {
-//   console.log(req.params.id);
-//   gfs.delete(new mongoose.Types.ObjectId(req.params.id), (err, data) => {
-//     if (err) {
-//       return res.status(404).json({ err: err });
-//     }
+*/
+routes.route("/:todoId").delete(async (req, res, next) => {
+  console.log("deleting file", req.params.todoId);
 
-//     res.status(200).json({
-//       success: true,
-//       message: `File with ID ${req.params.id} is deleted`,
-//     });
-//   });
-// });
+  const todo = await TodoModel.findOne({
+    _id: req.params.todoId,
+  }).exec();
+
+  if (!todo?.fileId) {
+    return res.status(200).json({
+      success: false,
+      message: "No todo or file",
+    });
+  }
+
+  console.log(todo);
+
+  gfs.delete(
+    new mongoose.Types.ObjectId(todo.fileId),
+    async (err: any, data: any) => {
+      if (err) {
+        return res.status(404).json({ err: err });
+      }
+
+      await FileModel.findOneAndRemove({ fileId: todo.fileId || "" });
+
+      todo.fileId = null;
+      todo.fileName = null;
+
+      console.log("id", req.params.todoId);
+
+      await TodoModel.updateOne(
+        {
+          _id: req.params.todoId,
+        },
+        {
+          $set: {
+            fileId: null,
+            fileName: null,
+          },
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: `File with ID ${req.params.todoId} is deleted`,
+      });
+    }
+  );
+});
 export default routes;

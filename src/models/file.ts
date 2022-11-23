@@ -1,16 +1,11 @@
 import { model, Schema, Document, Types } from "mongoose";
 
 interface IFile extends Document {
-  caption: string;
   filename: string;
   fileId: string;
 }
 
 const FileSchema = new Schema({
-  caption: {
-    required: true,
-    type: String,
-  },
   filename: {
     required: true,
     type: String,
