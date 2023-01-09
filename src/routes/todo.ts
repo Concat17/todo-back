@@ -101,7 +101,7 @@ routes.put("/check", async (req, res) => {
       }
     );
 
-    return res.status(200).json({ message: "Done status changing" });
+    return res.status(200).json({ message: "Done status  changing" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
